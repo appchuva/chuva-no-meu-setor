@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Chuva no meu setor</title>
+  <meta name="description" content="Previsão de chuva para as próximas horas no setor que você desenha no mapa.">
+  <meta name="theme-color" content="#1f5fbf">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icone-192.png">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topo">
+    <h1>Chuva no meu setor</h1>
+    <nav class="abas">
+      <a href="#previsao">Previsão</a>
+      <a href="#lugares">Meus lugares</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tela-previsao">
+      <div id="chips-lugares" class="chips" aria-label="Escolha o lugar"></div>
+
+      <div id="sem-lugares" class="cartao boas-vindas" hidden>
+        <h2>Comece desenhando o seu setor</h2>
+        <p>Contorne no mapa a área onde você cumpre os mandados. O app mostra a chance de chuva nas próximas horas e em que parte do setor o risco é maior.</p>
+        <p>Os desenhos ficam só neste aparelho: não há conta, senha nem servidor.</p>
+        <button id="botao-desenhar" type="button" class="primario">Desenhar meu setor</button>
+      </div>
+
+      <p id="status" class="status" hidden></p>
+
+      <div id="conteudo-previsao" hidden>
+        <div id="resumo" class="resumo">
+          <p id="resumo-principal" class="resumo-principal"></p>
+          <p id="resumo-detalhe" class="resumo-detalhe"></p>
+        </div>
+
+        <div id="atalhos" class="atalhos"></div>
+
+        <h2>Próximas horas</h2>
+        <ol id="proximas" class="linha-tempo"></ol>
+
+        <h2 id="titulo-risco">Onde o risco é maior</h2>
+        <div id="mapa-risco" class="mapa-risco"></div>
+        <p id="legenda-risco" class="legenda"></p>
+        <p class="legenda cores">
+          <span><i style="background:#cfd8e3"></i>seco</span>
+          <span><i style="background:#9cc3ec"></i>pouca chance</span>
+          <span><i style="background:#4f95dd"></i>possível</span>
+          <span><i style="background:#1f5fbf"></i>provável</span>
+          <span><i style="background:#6a2fb0"></i>temporal</span>
+        </p>
+
+        <h2>Resto de hoje e amanhã</h2>
+        <p class="legenda">Faixas escuras = noite.</p>
+        <ol id="resto" class="linha-tempo"></ol>
+
+        <h2>Próximos dias</h2>
+        <ol id="dias" class="dias"></ol>
+
+        <div class="cartao honesto">
+          <h2>Como ler esta previsão</h2>
+          <p>A porcentagem é a chance de chover naquela hora. Para o setor, o app mostra o <strong>pior caso</strong> entre os pontos de previsão espalhados nele.</p>
+          <p>É uma <strong>tendência</strong>, não um aviso rua por rua: os modelos de previsão enxergam áreas de cerca de 10 km. Os temporais do DF (outubro a abril) são fortes e bem localizados, e podem cair num bairro e não no vizinho.</p>
+          <p id="atualizacao"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tela-lugares" hidden>
+      <div id="acoes-lugares" class="botoes acoes-lugares">
+        <button type="button" data-acao="area" class="primario">+ Desenhar área</button>
+        <button type="button" data-acao="ponto">+ Marcar ponto (Casa, Fórum)</button>
+        <button type="button" data-acao="localizar">Ir para onde estou</button>
+      </div>
+      <div id="barra-desenho" class="barra-desenho" hidden></div>
+      <div id="mapa-lugares" class="mapa-lugares"></div>
+      <h2>Lugares salvos neste aparelho</h2>
+      <ul id="lista-lugares" class="lista-lugares"></ul>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <p>Dados do tempo: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (licença CC BY 4.0) · Mapa: © colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></p>
+    <p>App independente e gratuito. Não é um serviço oficial de nenhum tribunal.</p>
+  </footer>
+
+  <dialog id="dialogo-nome">
+    <form method="dialog">
+      <h2>Nome do lugar</h2>
+      <label>Nome <input type="text" maxlength="40" autocomplete="off"></label>
+      <p class="sugestoes">
+        <button type="button" data-sugestao="Meu setor">Meu setor</button>
+        <button type="button" data-sugestao="Casa">Casa</button>
+        <button type="button" data-sugestao="Fórum">Fórum</button>
+      </p>
+      <div class="botoes">
+        <button value="cancelar" formnovalidate>Cancelar</button>
+        <button value="ok" class="primario">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
