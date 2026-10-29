@@ -37,7 +37,8 @@ Oficiais de justiça cumprem mandados de carro pelo setor. O que mais atrapalha 
 
 ## Pendências
 
-- **Publicar no GitHub Pages** e testar no celular: etapa em andamento. Antes do primeiro envio, siga a seção "Antes do PRIMEIRO envio ao GitHub" do `CLAUDE.local.md`.
+- **Publicado** em https://appchuva.github.io/chuva-no-meu-setor/ e testado com sucesso no celular Android do usuário (29/10/2026). Para enviar mudanças: só a branch `main`; ver `CLAUDE.local.md`.
+- **Teste com amigos e colegas** em aparelhos e sistemas diferentes (Android e iPhone): aguardando retorno. Organizar o retorno por aparelho/sistema e por problema.
 - **Teste num computador do fórum**, depois da publicação. Roteiro: `docs/teste-no-forum.md`.
 - Ideias futuras: salvar/abrir o setor num arquivo ou por link (útil se computadores corporativos apagarem os dados do navegador); radar de chuva (pesquisar fonte gratuita e liberada para o DF).
 
