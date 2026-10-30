@@ -2,7 +2,7 @@
 // Não guarda o mapa (regra do OpenStreetMap) nem a previsão (o app guarda a última sozinho).
 // Ao mudar qualquer arquivo do app, aumente a VERSAO para o celular pegar a nova.
 
-const VERSAO = 'v4';
+const VERSAO = 'v5';
 const CACHE = `chuva-no-meu-setor-${VERSAO}`;
 const ARQUIVOS = [
   './',

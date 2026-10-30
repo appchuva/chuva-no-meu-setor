@@ -213,7 +213,7 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
     modo = { tipo: 'area', pontos: [], camada: L.layerGroup().addTo(mapa) };
     mapa.doubleClickZoom.disable();
     elMapa.classList.add('desenhando');
-    mostrarBarra('Toque no mapa para marcar os cantos do setor, um de cada vez, dando a volta nele (como os ponteiros do relógio, ou ao contrário). Não precisa ser exato: a previsão enxerga áreas de uns 10 km, então de 5 a 10 cantos bastam.', [
+    mostrarBarra('Toque no mapa para marcar os cantos do setor, um de cada vez, dando a volta nele. Para criar um canto no meio de uma linha já desenhada, toque em cima da linha. Não precisa ser exato: de 5 a 10 cantos bastam.', [
       ['Desfazer último', () => { modo.pontos.pop(); desenharRascunho(); }],
       ['Cancelar', sairDoModo],
       ['Concluir', concluirArea, 'primario'],
@@ -292,6 +292,33 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
     if (ladosQueSeCruzam(pts).size) avisoNaBarra(AVISO_CRUZOU);
     else if (pts.length >= 3) avisoNaBarra(`Cantos marcados: ${pts.length}. A linha fecha sozinha do último canto de volta ao canto 1 (verde). Para terminar, toque em "Concluir" ou no canto 1.`);
     else avisoNaBarra(`Cantos marcados: ${pts.length}`);
+  }
+
+  // Toque em cima (ou bem perto) de uma linha já desenhada: o canto novo entra nessa linha,
+  // em vez de ir para o fim da sequência. Devolve onde inserir, ou null se o toque foi longe.
+  const TOLERANCIA_PX = 22;
+  function pontoSobreLinha(toque) {
+    const pts = modo.pontos;
+    if (pts.length < 2) return null;
+    const tela = pts.map((p) => mapa.latLngToContainerPoint(p));
+    const lados = pts.length >= 3 ? pts.length : 1; // com 3+ cantos, inclui a linha que volta ao canto 1
+    let melhor = null;
+    for (let i = 0; i < lados; i++) {
+      const a = tela[i];
+      const b = tela[(i + 1) % pts.length];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const t = Math.max(0, Math.min(1, ((toque.x - a.x) * dx + (toque.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      const projecao = L.point(a.x + t * dx, a.y + t * dy);
+      const distancia = projecao.distanceTo(toque);
+      // Perto das pontas da linha é toque num canto, não na linha.
+      const longeDosCantos = projecao.distanceTo(a) > 14 && projecao.distanceTo(b) > 14;
+      if (distancia <= TOLERANCIA_PX && longeDosCantos && (!melhor || distancia < melhor.distancia)) {
+        const { lat, lng } = mapa.containerPointToLatLng(projecao);
+        melhor = { distancia, posicao: i + 1, ponto: [lat, lng] };
+      }
+    }
+    return melhor;
   }
 
   // ---------- Mudar a forma de um lugar salvo ----------
@@ -410,8 +437,13 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
     mapa.on('click', (e) => {
       if (!modo || (modo.tipo !== 'area' && modo.tipo !== 'ponto')) return;
       const p = [e.latlng.lat, e.latlng.lng];
-      if (modo.tipo === 'ponto') modo.pontos = [p];
-      else modo.pontos.push(p);
+      if (modo.tipo === 'ponto') {
+        modo.pontos = [p];
+      } else {
+        const naLinha = pontoSobreLinha(e.containerPoint);
+        if (naLinha) modo.pontos.splice(naLinha.posicao, 0, naLinha.ponto);
+        else modo.pontos.push(p);
+      }
       desenharRascunho();
     });
     mapa.on('locationerror', () => alert('Não consegui pegar a sua localização. Verifique se o navegador tem permissão.'));
