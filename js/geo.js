@@ -37,6 +37,30 @@ export function direcao(de, para) {
   return nomes[Math.round(graus / 45) % 8];
 }
 
+function segmentosSeCruzam([a, b], [c, d]) {
+  const lado = (p, q, r) => Math.sign((q[1] - p[1]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[1] - p[1]));
+  return lado(a, b, c) * lado(a, b, d) < 0 && lado(c, d, a) * lado(c, d, b) < 0;
+}
+
+// Lados do polígono que cruzam outro lado (desenho "embolado").
+// Devolve os índices dos lados: o lado i vai do canto i ao canto i+1.
+export function ladosQueSeCruzam(pontos) {
+  const n = pontos.length;
+  const cruzados = new Set();
+  if (n < 4) return cruzados;
+  const lado = (i) => [pontos[i], pontos[(i + 1) % n]];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue; // vizinhos pelo canto 1
+      if (segmentosSeCruzam(lado(i), lado(j))) {
+        cruzados.add(i);
+        cruzados.add(j);
+      }
+    }
+  }
+  return cruzados;
+}
+
 // Uma grade de pontos dentro do polígono (no máximo `maximo` pontos).
 // Os modelos de previsão têm células de ~10 km, então pontos muito próximos
 // dariam o mesmo resultado; a grade nunca fica mais fina que 1,5 km.

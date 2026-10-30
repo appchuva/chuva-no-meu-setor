@@ -1,9 +1,11 @@
 // Tela "Meus lugares": mapa onde a pessoa desenha, edita, nomeia e apaga lugares.
 
 import { lerLugares, salvarLugares, novoId } from './store.js';
+import { ladosQueSeCruzam } from './geo.js';
 
 const CENTRO_DF = [-15.75, -47.85];
 const COR_LUGAR = '#1f5fbf';
+const COR_ERRO = '#d93025';
 
 export function criarMapaBase(elemento, opcoes = {}) {
   const mapa = L.map(elemento, opcoes).setView(CENTRO_DF, 10);
@@ -18,12 +20,36 @@ export function criarMapaBase(elemento, opcoes = {}) {
 
 export function camadaDoLugar(lugar, estilo = {}) {
   if (lugar.tipo === 'ponto') return L.marker(lugar.pontos[0], { title: lugar.nome });
-  return L.polygon(lugar.pontos, { color: COR_LUGAR, weight: 2, fillOpacity: 0.1, ...estilo });
+  return L.polygon(lugar.pontos, { color: COR_LUGAR, weight: 3, fillOpacity: 0.12, ...estilo });
 }
 
-function icone(classe) {
-  return L.divIcon({ className: classe, iconSize: [22, 22], iconAnchor: [11, 11] });
+function icone(classe, html = '') {
+  return L.divIcon({ className: classe, html, iconSize: [24, 24], iconAnchor: [12, 12] });
 }
+
+// Contorno bem visível sobre qualquer fundo (linha azul grossa com borda branca).
+// Lados que se cruzam ficam em vermelho. Devolve uma função para redesenhar ao arrastar.
+function contornoVisivel(camada, pontos, fechado) {
+  const grupo = L.layerGroup().addTo(camada);
+  function desenhar(pts) {
+    grupo.clearLayers();
+    const linha = fechado && pts.length >= 3 ? [...pts, pts[0]] : pts;
+    if (fechado && pts.length >= 3) {
+      L.polygon(pts, { stroke: false, fillColor: COR_LUGAR, fillOpacity: 0.15, interactive: false }).addTo(grupo);
+    }
+    L.polyline(linha, { color: '#ffffff', weight: 8, opacity: 0.9, interactive: false }).addTo(grupo);
+    L.polyline(linha, { color: COR_LUGAR, weight: 4, interactive: false }).addTo(grupo);
+    if (fechado) {
+      for (const i of ladosQueSeCruzam(pts)) {
+        L.polyline([pts[i], pts[(i + 1) % pts.length]], { color: COR_ERRO, weight: 5, interactive: false }).addTo(grupo);
+      }
+    }
+  }
+  desenhar(pontos);
+  return desenhar;
+}
+
+const AVISO_CRUZOU = 'As linhas se cruzaram (trecho em vermelho). Arraste um canto para desembolar ou toque em "Desfazer último".';
 
 function botao(texto, aoClicar, classe = '') {
   const b = document.createElement('button');
@@ -187,7 +213,7 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
     modo = { tipo: 'area', pontos: [], camada: L.layerGroup().addTo(mapa) };
     mapa.doubleClickZoom.disable();
     elMapa.classList.add('desenhando');
-    mostrarBarra('Toque no mapa para marcar os cantos do setor, um de cada vez, dando a volta nele. Marque pelo menos 3 cantos. Para corrigir um canto, arraste a bolinha azul.', [
+    mostrarBarra('Toque no mapa para marcar os cantos do setor, um de cada vez, dando a volta nele (como os ponteiros do relógio, ou ao contrário). Não precisa ser exato: a previsão enxerga áreas de uns 10 km, então de 5 a 10 cantos bastam.', [
       ['Desfazer último', () => { modo.pontos.pop(); desenharRascunho(); }],
       ['Cancelar', sairDoModo],
       ['Concluir', concluirArea, 'primario'],
@@ -198,6 +224,10 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
   async function concluirArea() {
     if (modo.pontos.length < 3) {
       avisoNaBarra('Faltam cantos: marque pelo menos 3 pontos no mapa.');
+      return;
+    }
+    if (ladosQueSeCruzam(modo.pontos).size) {
+      avisoNaBarra(AVISO_CRUZOU);
       return;
     }
     const nome = await pedirNome('Como quer chamar esta área?', sugerirNome('area'));
@@ -242,21 +272,26 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
       }
       return;
     }
-    const estilo = { color: COR_LUGAR, dashArray: '6 6', weight: 2, fillOpacity: 0.1 };
-    const contorno = pts.length >= 3 ? L.polygon(pts, estilo) : L.polyline(pts, estilo);
-    contorno.addTo(modo.camada);
-    // Os cantos já podem ser arrastados enquanto o setor é desenhado.
+    const redesenhar = contornoVisivel(modo.camada, pts, true);
+    // Cantos numerados, na ordem em que são ligados. Podem ser arrastados durante o desenho.
     pts.forEach((p, i) => {
-      L.marker(p, { draggable: true, icon: icone('vertice'), title: `Canto ${i + 1}` })
+      L.marker(p, { draggable: true, icon: icone(i === 0 ? 'vertice primeiro' : 'vertice', String(i + 1)), title: `Canto ${i + 1}` })
         .addTo(modo.camada)
         .on('drag', (e) => {
           const { lat, lng } = e.target.getLatLng();
           pts[i] = [lat, lng];
-          contorno.setLatLngs(pts);
+          redesenhar(pts);
         })
-        .on('dragend', desenharRascunho);
+        .on('dragend', desenharRascunho)
+        .on('click', () => {
+          // Tocar no canto 1 fecha o desenho, como em outros apps de mapa.
+          if (i === 0 && pts.length >= 3) concluirArea();
+          else avisoNaBarra(`Este é o canto ${i + 1}. Para marcar um canto novo, toque num lugar do mapa longe das bolinhas. Para corrigir este, arraste-o.`);
+        });
     });
-    avisoNaBarra(`Cantos marcados: ${pts.length}`);
+    if (ladosQueSeCruzam(pts).size) avisoNaBarra(AVISO_CRUZOU);
+    else if (pts.length >= 3) avisoNaBarra(`Cantos marcados: ${pts.length}. A linha fecha sozinha do último canto de volta ao canto 1 (verde). Para terminar, toque em "Concluir" ou no canto 1.`);
+    else avisoNaBarra(`Cantos marcados: ${pts.length}`);
   }
 
   // ---------- Mudar a forma de um lugar salvo ----------
@@ -299,15 +334,17 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
       });
       return;
     }
-    const poligono = L.polygon(pontos, { color: COR_LUGAR, weight: 2, fillOpacity: 0.1 }).addTo(camada);
+    const redesenhar = contornoVisivel(camada, pontos, true);
+    if (ladosQueSeCruzam(pontos).size) avisoNaBarra(AVISO_CRUZOU.replace(' ou toque em "Desfazer último"', ''));
+    else avisoNaBarra('');
     pontos.forEach((p, i) => {
       const classe = i === modo.escolhido ? 'vertice escolhido' : 'vertice';
-      L.marker(p, { draggable: true, icon: icone(classe), title: `Canto ${i + 1}` })
+      L.marker(p, { draggable: true, icon: icone(classe, String(i + 1)), title: `Canto ${i + 1}` })
         .addTo(camada)
         .on('drag', (e) => {
           const { lat, lng } = e.target.getLatLng();
           pontos[i] = [lat, lng];
-          poligono.setLatLngs(pontos);
+          redesenhar(pontos);
         })
         .on('dragend', desenharEdicao)
         .on('click', () => { modo.escolhido = i; desenharEdicao(); });
@@ -358,6 +395,10 @@ export function iniciarTelaLugares({ elMapa, elBarra, elLista, elAcoes, dialogo,
 
   function salvarEdicao() {
     const { lugar, pontos } = modo;
+    if (lugar.tipo === 'area' && ladosQueSeCruzam(pontos).size) {
+      avisoNaBarra(AVISO_CRUZOU.replace(' ou toque em "Desfazer último"', ''));
+      return;
+    }
     sairDoModo();
     guardar(lerLugares().map((l) => (l.id === lugar.id ? { ...l, pontos } : l)), lugar.id);
   }
